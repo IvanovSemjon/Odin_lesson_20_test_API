@@ -1,9 +1,18 @@
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn, json
 import os
 
 app = FastAPI(title="Простой CRUD с JSON")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 DATA_FILE = 'users.json'
 
@@ -15,7 +24,7 @@ def load_users():
 @app.get("/")
 def home():
     """Главная страница"""
-    return FileResponse("index.html")
+    return FileResponse('index_2.html')
 
 
 @app.get("/users")
@@ -23,6 +32,20 @@ def get_users():
     """Возвращает список пользователей из JSON файла"""
     return load_users()
 
+
+@app.get("/users/stats")
+def get_stats():
+    """Возвращает статистику по пользователям"""
+    users = load_users()
+    ages = [user['возраст'] for user in users]
+    youngest = min(users, key=lambda x: x['возраст'])
+    oldest = max(users, key=lambda x: x['возраст'])
+    return {
+        'total_users': len(users),
+        'avg_age': sum(ages) / len(ages),
+        'youngest': youngest,
+        'oldest': oldest
+    }
 
 @app.get("/users/search/{name}")
 def get_user_by_name(name: str):
@@ -33,7 +56,7 @@ def get_user_by_name(name: str):
         if name.lower() in user['Имя'].lower():
             return user
     return {'error': 'Пользователь не найден'}
-
+    
 
 @app.get("/users/{user_id}")
 def get_user(user_id: int):
@@ -89,22 +112,7 @@ def save_users(users):
         json.dump(users, f, indent=2, ensure_ascii=False)
 
 
-"""Статистика
-средний возраст пользователей;
-самый молодой;
-самый старший.
-"""
 
-
-@app.get("/users/return/stats")
-def get_stats():
-    """Возвращает статистику по пользователям"""
-    users = load_users()
-    ages = [user['возраст'] for user in users]
-    avg_age = sum(ages) / len(ages)
-    youngest = min(ages)
-    oldest = max(ages)
-    return {'Средний возраст': avg_age, 'Младший возраст': youngest, 'Старший возраст': oldest}
 
 
 @app.on_event("startup")

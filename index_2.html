@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRUD API - Управление пользователями</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Arial', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; color: white; margin-bottom: 30px; animation: fadeInDown 1s; }
+        .header h1 { font-size: 3em; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .controls { display: flex; gap: 15px; margin-bottom: 30px; flex-wrap: wrap; animation: slideInLeft 1s; }
+        .btn { padding: 12px 24px; border: none; border-radius: 25px; cursor: pointer; font-weight: bold; transition: all 0.3s; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        .btn-primary { background: #4CAF50; color: white; }
+        .btn-info { background: #2196F3; color: white; }
+        .btn-warning { background: #FF9800; color: white; }
+        .btn-danger { background: #f44336; color: white; }
+        .users-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; animation: fadeInUp 1s; }
+        .user-card { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); transition: all 0.3s; }
+        .user-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
+        .user-name { font-size: 1.5em; color: #333; margin-bottom: 10px; }
+        .user-info { color: #666; margin-bottom: 5px; }
+        .user-actions { margin-top: 15px; display: flex; gap: 10px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
+        .modal-content { background: white; margin: 5% auto; padding: 30px; border-radius: 15px; width: 90%; max-width: 500px; animation: zoomIn 0.3s; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input { width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 8px; transition: border-color 0.3s; }
+        .form-group input:focus { border-color: #4CAF50; outline: none; }
+        .loading { text-align: center; color: white; font-size: 1.2em; }
+        .pulse { animation: pulse 2s infinite; }
+        
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-30px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideInLeft { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes zoomIn { from { transform: scale(0.3); } to { transform: scale(1); } }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 CRUD API</h1>
+            <p>Управление пользователями с анимацией</p>
+        </div>
+        
+        <div class="controls">
+            <button class="btn btn-primary" onclick="loadUsers()">📋 Загрузить пользователей</button>
+            <button class="btn btn-info" onclick="showAddModal()">➕ Добавить пользователя</button>
+            <button class="btn btn-warning" onclick="showSearchModal()">🔍 Поиск</button>
+            <button class="btn btn-info" onclick="loadStats()">📊 Статистика</button>
+        </div>
+        
+        <div id="stats-container" style="display: none; background: white; border-radius: 15px; padding: 20px; margin-bottom: 20px; animation: fadeInUp 1s;">
+            <h3 style="margin-bottom: 15px; color: #333;">📊 Статистика пользователей</h3>
+            <div id="stats-content" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;"></div>
+        </div>
+        
+        <div id="loading" class="loading" style="display: none;">
+            <div class="pulse">⏳ Загрузка...</div>
+        </div>
+        
+        <div id="users-container" class="users-grid"></div>
+    </div>
+
+    <!-- Модальное окно добавления -->
+    <div id="addModal" class="modal">
+        <div class="modal-content">
+            <h2>➕ Добавить пользователя</h2>
+            <div class="form-group">
+                <label>Имя:</label>
+                <input type="text" id="addName" placeholder="Введите имя">
+            </div>
+            <div class="form-group">
+                <label>Возраст:</label>
+                <input type="number" id="addAge" placeholder="Введите возраст">
+            </div>
+            <div class="form-group">
+                <label>Email:</label>
+                <input type="email" id="addEmail" placeholder="Введите email">
+            </div>
+            <button class="btn btn-primary" onclick="addUser()">Добавить</button>
+            <button class="btn btn-danger" onclick="closeModal('addModal')">Отмена</button>
+        </div>
+    </div>
+
+    <!-- Модальное окно поиска -->
+    <div id="searchModal" class="modal">
+        <div class="modal-content">
+            <h2>🔍 Поиск пользователя</h2>
+            <div class="form-group">
+                <label>Имя для поиска:</label>
+                <input type="text" id="searchName" placeholder="Введите имя">
+            </div>
+            <button class="btn btn-info" onclick="searchUser()">Найти</button>
+            <button class="btn btn-danger" onclick="closeModal('searchModal')">Отмена</button>
+        </div>
+    </div>
+
+    <script>
+        async function loadUsers() {
+            showLoading();
+            try {
+                const response = await fetch('/users');
+                const users = await response.json();
+                displayUsers(users);
+            } catch (error) {
+                alert('Ошибка загрузки: ' + error.message);
+            }
+            hideLoading();
+        }
+
+        function displayUsers(users) {
+            const container = document.getElementById('users-container');
+            container.innerHTML = '';
+            
+            users.forEach(user => {
+                const card = document.createElement('div');
+                card.className = 'user-card';
+                card.innerHTML = `
+                    <div class="user-name">👤 ${user.Имя}</div>
+                    <div class="user-info">🎂 Возраст: ${user.возраст}</div>
+                    <div class="user-info">📧 Email: ${user.email}</div>
+                    <div class="user-actions">
+                        <button class="btn btn-danger" onclick="deleteUser(${user.id})">🗑️ Удалить</button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        async function addUser() {
+            const name = document.getElementById('addName').value;
+            const age = parseInt(document.getElementById('addAge').value);
+            const email = document.getElementById('addEmail').value;
+            
+            if (!name || !age || !email) {
+                alert('Заполните все поля!');
+                return;
+            }
+
+            try {
+                const response = await fetch('/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 'Имя': name, 'возраст': age, email: email })
+                });
+                
+                if (response.ok) {
+                    closeModal('addModal');
+                    loadUsers();
+                    clearForm();
+                } else {
+                    const error = await response.json();
+                    alert('Ошибка: ' + error.error);
+                }
+            } catch (error) {
+                alert('Ошибка: ' + error.message);
+            }
+        }
+
+        async function deleteUser(id) {
+            if (!confirm('Удалить пользователя?')) return;
+            
+            try {
+                await fetch(`/users/${id}`, { method: 'DELETE' });
+                loadUsers();
+            } catch (error) {
+                alert('Ошибка удаления: ' + error.message);
+            }
+        }
+
+        async function searchUser() {
+            const name = document.getElementById('searchName').value;
+            if (!name) {
+                alert('Введите имя для поиска!');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/users/search/${name}`);
+                const user = await response.json();
+                
+                if (user.error) {
+                    alert('Пользователь не найден');
+                } else {
+                    displayUsers([user]);
+                    closeModal('searchModal');
+                }
+            } catch (error) {
+                alert('Ошибка поиска: ' + error.message);
+            }
+        }
+
+        async function loadStats() {
+            try {
+                const response = await fetch('/users/stats');
+                const stats = await response.json();
+                displayStats(stats);
+            } catch (error) {
+                alert('Ошибка загрузки статистики: ' + error.message);
+            }
+        }
+
+        function displayStats(stats) {
+            const container = document.getElementById('stats-container');
+            const content = document.getElementById('stats-content');
+            
+            content.innerHTML = `
+                <div style="background: #4CAF50; color: white; padding: 15px; border-radius: 10px; text-align: center;">
+                    <div style="font-size: 2em; font-weight: bold;">${stats.total_users}</div>
+                    <div>Всего пользователей</div>
+                </div>
+                <div style="background: #2196F3; color: white; padding: 15px; border-radius: 10px; text-align: center;">
+                    <div style="font-size: 2em; font-weight: bold;">${Math.round(stats.avg_age)}</div>
+                    <div>Средний возраст</div>
+                </div>
+                <div style="background: #FF9800; color: white; padding: 15px; border-radius: 10px; text-align: center;">
+                    <div style="font-size: 1.2em; font-weight: bold;">${stats.youngest['Имя']}</div>
+                    <div>Самый молодой (${stats.youngest['возраст']} лет)</div>
+                </div>
+                <div style="background: #9C27B0; color: white; padding: 15px; border-radius: 10px; text-align: center;">
+                    <div style="font-size: 1.2em; font-weight: bold;">${stats.oldest['Имя']}</div>
+                    <div>Самый старший (${stats.oldest['возраст']} лет)</div>
+                </div>
+            `;
+            
+            container.style.display = 'block';
+        }
+
+        function showAddModal() { document.getElementById('addModal').style.display = 'block'; }
+        function showSearchModal() { document.getElementById('searchModal').style.display = 'block'; }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+        function showLoading() { document.getElementById('loading').style.display = 'block'; }
+        function hideLoading() { document.getElementById('loading').style.display = 'none'; }
+        function clearForm() {
+            document.getElementById('addName').value = '';
+            document.getElementById('addAge').value = '';
+            document.getElementById('addEmail').value = '';
+        }
+
+        // Загрузка при старте
+        loadUsers();
+    </script>
+</body>
+</html>
