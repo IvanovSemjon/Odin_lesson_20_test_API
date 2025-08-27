@@ -7,16 +7,104 @@ app = FastAPI(title="Простой CRUD с JSON")
 
 DATA_FILE = 'users.json'
 
+
+def load_users():
+    return json.load(open(DATA_FILE, 'r', encoding="utf-8"))
+
+
 @app.get("/")
 def home():
     """Главная страница"""
-    return {'Сообщение': "Простой CRUD API", "документация": "/docs"}
+    return FileResponse("index.html")
+
+
+@app.get("/users")
+def get_users():
+    """Возвращает список пользователей из JSON файла"""
+    return load_users()
+
+
+@app.get("/users/search/{name}")
+def get_user_by_name(name: str):
+    """Возвращает информацию о пользователе по его имени"""
+    users = load_users()
+    print(1, name)
+    for user in users:
+        if name.lower() in user['Имя'].lower():
+            return user
+    return {'error': 'Пользователь не найден'}
+
+
+@app.get("/users/{user_id}")
+def get_user(user_id: int):
+    """Возвращает информацию о пользователе по его ID"""
+    users = load_users()
+    for user in users:
+        if user['id'] == user_id:
+            return user
+    return {'error': 'Пользователь не найден'}
+
+
+@app.post("/users")
+def create_user(user: dict):
+    """Создает нового пользователя"""
+    users = load_users()
+    for u in users:
+        if u['email'] == user['email']:
+            return {'error': 'Пользователь с таким email уже существует'}
+    user['id'] = len(users) + 1
+    users.append(user)
+    save_users(users)
+    return user
+
+
+@app.put("/users/{user_id}")
+def update_user(user_id: int, updated_user: dict):
+    """Обновляет информацию о пользователе по его ID"""
+    users = load_users()
+    for user in users:
+        if user['id'] == user_id:
+            user.update(updated_user)
+            save_users(users)
+            return user
+    return {'error': 'Пользователь не найден'}
+
+
+@app.delete("/users/{user_id}")
+def delete_user(user_id: int):
+    """Удаляет пользователя по его ID"""
+    users = load_users()
+    for user in users:
+        if user['id'] == user_id:
+            users.remove(user)
+            save_users(users)
+            return {'message': 'Пользователь удален'}
+    return {'error': 'Пользователь не найден'}
+
 
 
 def save_users(users):
     """Сохраняет список пользователей в JSON файл"""
     with open(DATA_FILE, 'w', encoding="utf-8") as f:
         json.dump(users, f, indent=2, ensure_ascii=False)
+
+
+"""Статистика
+средний возраст пользователей;
+самый молодой;
+самый старший.
+"""
+
+
+@app.get("/users/return/stats")
+def get_stats():
+    """Возвращает статистику по пользователям"""
+    users = load_users()
+    ages = [user['возраст'] for user in users]
+    avg_age = sum(ages) / len(ages)
+    youngest = min(ages)
+    oldest = max(ages)
+    return {'Средний возраст': avg_age, 'Младший возраст': youngest, 'Старший возраст': oldest}
 
 
 @app.on_event("startup")
